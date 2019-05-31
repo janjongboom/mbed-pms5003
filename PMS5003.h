@@ -20,6 +20,10 @@
 #ifndef PMS5003_H_
 #define PMS5003_H_
 
+#ifndef PMS5003_DEBUG
+#define PMS5003_DEBUG 0
+#endif // PMS5003_DEBUG
+
 typedef struct {
     uint16_t pm10_standard, pm25_standard, pm100_standard;
     uint16_t pm10_env, pm25_env, pm100_env;
@@ -28,13 +32,19 @@ typedef struct {
 
 class PMS5003 {
 public:
-    PMS5003(PinName tx, PinName rx, PinName power, PinName reset, EventQueue *queue) :
+    PMS5003(PinName tx, PinName rx, PinName power, PinName reset
+#if PMS5003_DEBUG == 1
+    , EventQueue *queue
+#endif
+        ):
         _serial(tx, rx),
         _power(power),
         _reset(reset),
         _buffer_ix(0),
-        _in_valid_packet(false),
-        _queue(queue)
+        _in_valid_packet(false)
+#if PMS5003_DEBUG == 1
+        ,_queue(queue)
+#endif
     {
         memset(_buffer, 0, sizeof(_buffer));
 
@@ -83,7 +93,9 @@ private:
             // new frame
             // actually a frame is denoted of 0x42, 0x4d
             if (c == 0x42) {
+#if PMS5003_DEBUG == 1
                 _queue->call(printf, "new frame\n");
+#endif
                 memset(_buffer, 0, sizeof(_buffer));
                 _buffer_ix = 0;
                 _in_valid_packet = true;
@@ -91,7 +103,9 @@ private:
 
             if (_buffer_ix == 1 && c != 0x4d) {
                 // something is wrong...
+#if PMS5003_DEBUG == 1
                 _queue->call(printf, "invalid second byte (%02x)\n", c);
+#endif
                 _in_valid_packet = false;
             }
 
@@ -104,7 +118,9 @@ private:
             if (_in_valid_packet && _buffer[_buffer_ix] == sizeof(_buffer)) {
                 uint16_t frame_length = (_buffer[2] << 8) + _buffer[3];
                 if (frame_length != 28) {
+#if PMS5003_DEBUG == 1
                     _queue->call(printf, "Frame length not correct (was %u)\n", frame_length);
+#endif
                     return;
                 }
 
@@ -117,7 +133,9 @@ private:
                 }
 
                 if (checksum != expected_checksum) {
+#if PMS5003_DEBUG == 1
                     _queue->call(printf, "Checksum not correct (was %u, but expected %u)\n", checksum, expected_checksum);
+#endif
                     return;
                 }
 
@@ -152,7 +170,9 @@ private:
     uint8_t _buffer_ix;
     bool _in_valid_packet;
 
+#if PMS5003_DEBUG == 1
     EventQueue *_queue;
+#endif
 
     Callback<void(pms5003_data_t)> _callback;
 };
