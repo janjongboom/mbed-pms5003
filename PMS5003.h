@@ -28,8 +28,9 @@ typedef struct {
 
 class PMS5003 {
 public:
-    PMS5003(PinName tx, PinName rx, PinName reset, EventQueue *queue) :
+    PMS5003(PinName tx, PinName rx, PinName power, PinName reset, EventQueue *queue) :
         _serial(tx, rx),
+        _power(power),
         _reset(reset),
         _buffer_ix(0),
         _in_valid_packet(false),
@@ -39,6 +40,8 @@ public:
 
         _serial.baud(9600);
         _serial.format(8, Serial::None, 1);
+
+        _power = 0;
     }
 
     /**
@@ -48,6 +51,8 @@ public:
      * @param pkt_callback This will fire from an interrupt context whenever a packet is complete
      */
     void enable(Callback<void(pms5003_data_t)> pkt_callback) {
+        _power = 1;
+
         _serial.attach(callback(this, &PMS5003::rx_irq), SerialBase::RxIrq);
 
         _callback = pkt_callback;
@@ -58,6 +63,8 @@ public:
      * This will re-enable deep sleep on the board.
      */
     void disable() {
+        _power = 0;
+
         _serial.attach(NULL);
 
         _callback = NULL;
@@ -138,6 +145,7 @@ private:
     }
 
     RawSerial _serial;
+    DigitalOut _power;
     DigitalOut _reset;
 
     uint8_t _buffer[32];
